@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="nl">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KSA Spelleider</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f0f8ff;
+    }
+
+    button {
+      margin: 5px;
+      padding: 10px 15px;
+      font-size: 1rem;
+    }
+
+    h2 {
+      margin-top: 30px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th,
+    td {
+      border: 1px solid #ccc;
+      padding: 5px;
+      text-align: left;
+    }
+
+    #status {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>KSA Spel - Beheer</h1>
+
+  <button id="startBtn">Start spel</button>
+  <button id="volgendeBtn">Volgende opdracht</button>
+  <button id="geslaagdBtn">Geslaagd</button>
+  <button id="gefaaldBtn">Gefaald</button>
+  <button id="resetBtn">Reset spel</button>
+
+  <p id="status"></p>
+  <p id="huidigeOpdrachtStatus"></p>
+
+  <h2>Geslaagde opdrachten</h2>
+  <table id="geslaagdTable">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Opdracht</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h2>Gefaalde opdrachten</h2>
+  <table id="gefaaldTable">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Opdracht</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const opdrachten = [
+      "Zoek een voorwerp dat blauw én zacht is.",
+      "Maak een menselijke toren van minstens 3 personen.",
+      "Verzamel 5 schoenen van verschillende mensen.",
+      "Zing het KSA-lied achterstevoren (zo goed als je kan).",
+      "Doe een estafette met een ei (denk creatief).",
+      "Maak een groepsfoto waarbij iedereen een ander dier nadoet."
+    ];
+
+    const kwartierMs = 15 * 60 * 1000;
+
+    function getStarttijd() {
+      return parseInt(localStorage.getItem("spel_starttijd")) || 0;
+    }
+
+    function getOffset() {
+      return parseInt(localStorage.getItem("handmatige_offset")) || 0;
+    }
+
+    function huidigeOpdrachtIndex() {
+      const starttijd = getStarttijd();
+      if (!starttijd) return -1;
+
+      const now = Date.now();
+      const offset = getOffset();
+      const verschilMs = now - starttijd;
+
+      const kwartierenVerlopenZonderOffset = Math.floor(verschilMs / kwartierMs);
+
+      let index = kwartierenVerlopenZonderOffset + offset;
+
+      if (index >= opdrachten.length) {
+        return -1; // Spel afgelopen
+      }
+
+      return index;
+    }
+
+    function updateStatus() {
+      const starttijd = getStarttijd();
+      const statusEl = document.getElementById("status");
+      const huidigeIndex = huidigeOpdrachtIndex();
+
+      if (!starttijd) {
+        statusEl.innerText = "Het spel is nog niet gestart.";
+      } else if (huidigeIndex === -1) {
+        statusEl.innerText = "Spel afgelopen! Goed gespeeld!";
+      } else {
+        statusEl.innerText = `Spel gestart op: ${new Date(starttijd).toLocaleTimeString()}`;
+      }
+
+      updateHuidigeOpdrachtStatus();
+    }
+
+    function updateHuidigeOpdrachtStatus() {
+      const huidigeIndex = huidigeOpdrachtIndex();
+      const el = document.getElementById("huidigeOpdrachtStatus");
+
+      if (huidigeIndex === -1) {
+        el.innerText = "";
+      } else {
+        el.innerText = `Huidige opdracht (#${huidigeIndex + 1}): ${opdrachten[huidigeIndex]}`;
+      }
+    }
+
+    function vulTabellen() {
+      const geslaagd = JSON.parse(localStorage.getItem("geslaagd")) || [];
+      const gefaald = JSON.parse(localStorage.getItem("gefaald")) || [];
+
+      const geslaagdBody = document.querySelector("#geslaagdTable tbody");
+      const gefaaldBody = document.querySelector("#gefaaldTable tbody");
+
+      geslaagdBody.innerHTML = "";
+      gefaaldBody.innerHTML = "";
+
+      geslaagd.forEach((index, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${i + 1}</td><td>${opdrachten[index]}</td>`;
+        geslaagdBody.appendChild(tr);
+      });
+
+      gefaald.forEach((index, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${i + 1}</td><td>${opdrachten[index]}</td>`;
+        gefaaldBody.appendChild(tr);
+      });
+    }
+
+    document.getElementById("startBtn").addEventListener("click", () => {
+      const now = Date.now();
+      localStorage.setItem("spel_starttijd", now);
+      localStorage.setItem("handmatige_offset", 0);
+      localStorage.setItem("geslaagd", JSON.stringify([]));
+      localStorage.setItem("gefaald", JSON.stringify([]));
+      updateStatus();
+      vulTabellen();
+    });
+
+    document.getElementById("volgendeBtn").addEventListener("click", () => {
+      let offset = getOffset();
+      offset++;
+      if (offset > opdrachten.length) offset = opdrachten.length; // max één hoger dan opdrachten.length to allow -1 check
+      localStorage.setItem("handmatige_offset", offset);
+      updateStatus();
+    });
+
+    document.getElementById("geslaagdBtn").addEventListener("click", () => {
+      const index = huidigeOpdrachtIndex();
+      if (index === -1) return;
+      const geslaagd = JSON.parse(localStorage.getItem("geslaagd")) || [];
+      if (!geslaagd.includes(index)) {
+        geslaagd.push(index);
+        localStorage.setItem("geslaagd", JSON.stringify(geslaagd));
+      }
+      let offset = getOffset();
+      offset++;
+      if (offset > opdrachten.length) offset = opdrachten.length;
+      localStorage.setItem("handmatige_offset", offset);
+      vulTabellen();
+      updateStatus();
+    });
+
+    document.getElementById("gefaaldBtn").addEventListener("click", () => {
+      const index = huidigeOpdrachtIndex();
+      if (index === -1) return;
+      const gefaald = JSON.parse(localStorage.getItem("gefaald")) || [];
+      if (!gefaald.includes(index)) {
+        gefaald.push(index);
+        localStorage.setItem("gefaald", JSON.stringify(gefaald));
+      }
+      let offset = getOffset();
+      offset++;
+      if (offset > opdrachten.length) offset = opdrachten.length;
+      localStorage.setItem("handmatige_offset", offset);
+      vulTabellen();
+      updateStatus();
+    });
+
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      localStorage.removeItem("spel_starttijd");
+      localStorage.removeItem("handmatige_offset");
+      localStorage.removeItem("geslaagd");
+      localStorage.removeItem("gefaald");
+      updateStatus();
+      vulTabellen();
+    });
+
+    updateStatus();
+    vulTabellen();
+
+    window.addEventListener("storage", (e) => {
+      if (
+        e.key === "spel_starttijd" ||
+        e.key === "handmatige_offset" ||
+        e.key === "geslaagd" ||
+        e.key === "gefaald"
+      ) {
+        updateStatus();
+        vulTabellen();
+      }
+    });
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="nl">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KSA Opdracht</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #f0f8ff;
+      text-align: center;
+      padding: 20px;
+    }
+
+    #opdracht {
+      font-size: 2rem;
+      margin-bottom: 20px;
+    }
+
+    #timer {
+      font-size: 1.5rem;
+      color: #333;
+      margin-bottom: 30px;
+    }
+
+    h2 {
+      margin-top: 40px;
+      margin-bottom: 10px;
+    }
+
+    table {
+      width: 90vw;
+      max-width: 600px;
+      border-collapse: collapse;
+      margin-bottom: 30px;
+    }
+
+    th,
+    td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="opdracht">Wachten op start van het spel...</div>
+  <div id="timer"></div>
+
+  <h2>Geslaagde opdrachten</h2>
+  <table id="geslaagdTable">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Opdracht</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <h2>Gefaalde opdrachten</h2>
+  <table id="gefaaldTable">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Opdracht</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const opdrachten = [
+      "Zoek een voorwerp dat blauw én zacht is.",
+      "Maak een menselijke toren van minstens 3 personen.",
+      "Verzamel 5 schoenen van verschillende mensen.",
+      "Zing het KSA-lied achterstevoren (zo goed als je kan).",
+      "Doe een estafette met een ei (denk creatief).",
+      "Maak een groepsfoto waarbij iedereen een ander dier nadoet."
+    ];
+
+    const kwartierMs = 15 * 60 * 1000;
+
+    let handmatigeOffset = parseInt(localStorage.getItem("handmatige_offset")) || 0;
+
+    let intervalId = null;
+
+    window.addEventListener("storage", (event) => {
+      if (["handmatige_offset", "geslaagd", "gefaald", "spel_starttijd"].includes(event.key)) {
+        handmatigeOffset = parseInt(localStorage.getItem("handmatige_offset")) || 0;
+        updateOpdracht();
+        vulTabellen();
+      }
+    });
+
+    function updateOpdracht() {
+      const starttijd = localStorage.getItem("spel_starttijd");
+      if (!starttijd) {
+        document.getElementById("opdracht").innerText = "Het spel is nog niet gestart.";
+        document.getElementById("timer").innerText = "";
+        return;
+      }
+
+      const nu = Date.now();
+      const verschilMs = nu - parseInt(starttijd);
+      const kwartierenVerlopen = Math.floor(verschilMs / kwartierMs) + handmatigeOffset;
+      const tijdSindsLaatste = verschilMs % kwartierMs;
+      const tijdTotVolgende = kwartierMs - tijdSindsLaatste;
+
+      if (kwartierenVerlopen < opdrachten.length) {
+        document.getElementById("opdracht").innerText = opdrachten[kwartierenVerlopen];
+        const minuten = Math.floor(tijdTotVolgende / 60000);
+        const seconden = Math.floor((tijdTotVolgende % 60000) / 1000);
+        document.getElementById("timer").innerText = `Volgende opdracht over: ${minuten}m ${seconden}s`;
+      } else {
+        document.getElementById("opdracht").innerText = "Spel afgelopen! Goed gespeeld!";
+        document.getElementById("timer").innerText = "";
+        if (intervalId !== null) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+      }
+    }
+
+    function vulTabellen() {
+      const geslaagd = JSON.parse(localStorage.getItem("geslaagd")) || [];
+      const gefaald = JSON.parse(localStorage.getItem("gefaald")) || [];
+
+      const geslaagdBody = document.querySelector("#geslaagdTable tbody");
+      const gefaaldBody = document.querySelector("#gefaaldTable tbody");
+
+      geslaagdBody.innerHTML = "";
+      gefaaldBody.innerHTML = "";
+
+      geslaagd.forEach((index, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${i + 1}</td><td>${opdrachten[index]}</td>`;
+        geslaagdBody.appendChild(tr);
+      });
+
+      gefaald.forEach((index, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${i + 1}</td><td>${opdrachten[index]}</td>`;
+        gefaaldBody.appendChild(tr);
+      });
+    }
+
+    intervalId = setInterval(updateOpdracht, 1000);
+    updateOpdracht();
+    vulTabellen();
+  </script>
+</body>
+
+</html>
