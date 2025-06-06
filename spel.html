@@ -7,45 +7,140 @@
   <title>KSA Spel</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background-color: #f0f4f8;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #e9f0f8 0%, #f1f1f1 100%);
+      color: #333;
+      margin: 0;
+      padding: 40px 20px 60px 20px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       min-height: 100vh;
       text-align: center;
-      padding: 2rem;
+      position: relative;
+      box-sizing: border-box;
     }
 
-    h1 {
-      font-size: 2rem;
-      margin-bottom: 1rem;
+    #ksa-welle-logo-left {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      width: 120px;
+      filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.2));
+    }
+
+    #ksa-welle-logo-right {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 120px;
+      filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.2));
+    }
+
+    /* Nieuwe styling voor linker en rechter benedenhoek afbeeldingen */
+    #linker-beneden {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      width: 150px;
+      height: auto;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+      z-index: 10;
+      background: white;
+    }
+
+    #rechter-beneden {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      width: 150px;
+      height: auto;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+      z-index: 10;
+      background: white;
+    }
+
+    h1.title {
+      font-family: 'Bebas Kai', cursive, sans-serif;
+      font-size: 3.8rem;
+      color: #005BAC;
+      margin-top: 100px;
+      margin-bottom: 10px;
+      letter-spacing: 3px;
+      text-shadow: 1px 1px 3px rgba(0, 91, 172, 0.5);
     }
 
     #opdracht {
-      font-size: 1.5rem;
-      margin-bottom: 1rem;
+      font-size: 1.6rem;
+      color: #FF6A13;
+      margin-bottom: 30px;
+      font-weight: 600;
+      max-width: 600px;
+      background: #fff;
+      padding: 20px 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 8px rgba(255, 106, 19, 0.3);
+      transition: box-shadow 0.3s ease;
+    }
+
+    #opdracht:hover {
+      box-shadow: 0 8px 16px rgba(255, 106, 19, 0.5);
     }
 
     #timer {
-      font-size: 1.2rem;
-      color: #555;
+      font-size: 1.3rem;
+      color: #444;
+      background: #e1e8f2;
+      padding: 10px 25px;
+      border-radius: 8px;
+      box-shadow: inset 0 2px 5px rgba(0, 91, 172, 0.2);
+      width: fit-content;
+      min-width: 200px;
+      font-weight: 500;
+      letter-spacing: 1px;
+    }
+
+    .button {
+      background-color: #FF6A13;
+      color: white;
+      border: none;
+      padding: 12px 28px;
+      font-size: 1.1rem;
+      margin: 10px 8px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: background-color 0.3s ease, box-shadow 0.3s ease;
+      box-shadow: 0 4px 8px rgba(255, 106, 19, 0.4);
+      font-weight: 600;
+    }
+
+    .button:hover {
+      background-color: #e65c00;
+      box-shadow: 0 6px 14px rgba(230, 92, 0, 0.6);
     }
   </style>
 </head>
 
 <body>
-  <h1>Huidige opdracht</h1>
+  <img id="ksa-welle-logo-left" src="definitief_logo_ksa_0_0.png" alt="KSA Welle Logo Links" />
+  <img id="ksa-welle-logo-right" src="definitief_logo_ksa_0_0.png" alt="KSA Welle Logo Rechts" />
+
+  <h1 class="title">De Hernieuwers</h1>
+
   <div id="opdracht">Even laden...</div>
   <div id="timer">--:--</div>
 
-  <!-- Firebase SDK -->
+  <!-- Nieuwe afbeeldingen linker en rechter benedenhoek -->
+  <img id="linker-beneden" src="arne-150x209.jpg" alt="Arne" />
+  <img id="rechter-beneden" src="casper-150x180.jpg" alt="Casper" />
+
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
   <script>
-    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyBBuzP_paWICOLgQlDlCqK3CXGPu5y_BwU",
       authDomain: "ksa-spel.firebaseapp.com",
@@ -55,26 +150,20 @@
       messagingSenderId: "391903573489",
       appId: "1:391903573489:web:17f8776dbdf2990d108050"
     };
-
-    // Firebase initialiseren
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    const opdrachtEl = document.getElementById('opdracht');
-    const timerEl = document.getElementById('timer');
-
     const opdrachten = [
-      "Zoek een voorwerp dat blauw én zacht is.",
-      "Maak een menselijke toren van minstens 3 personen.",
-      "Verzamel 5 schoenen van verschillende mensen.",
-      "Zing het KSA-lied achterstevoren (zo goed als je kan).",
-      "Doe een estafette met een ei (denk creatief).",
-      "Maak een groepsfoto waarbij iedereen een ander dier nadoet.",
-      "Doe opdracht 7"
+      "Zoek een voorwerp dat rood is en begint met een P.",
+      "Verzin een nieuwe ksa handshake die 30 seconden lang is",
+      "Verzamel 5 fotos met random mensen",
+      "Ga op de foto met bol",
+      "Fix een ei en speel er het gooispel mee.",
+      "Maak een groepsfoto voor Frituur koen",
+      "Maak een klerenketting zolang mogelijk op het welleplein"
     ];
 
     const kwartierMs = 15 * 60 * 1000;
-
     let starttijd = null;
     let offset = 0;
     let laatsteIndex = -1;
@@ -82,10 +171,10 @@
 
     function toonOpdracht(index) {
       if (index >= opdrachten.length) {
-        opdrachtEl.textContent = "Spel afgelopen! Goed gespeeld!";
-        timerEl.textContent = "";
+        document.getElementById('opdracht').textContent = "Spel afgelopen! Goed gespeeld!";
+        document.getElementById('timer').textContent = "";
       } else {
-        opdrachtEl.textContent = `Opdracht #${index + 1}: ${opdrachten[index]}`;
+        document.getElementById('opdracht').textContent = `Opdracht #${index + 1}: ${opdrachten[index]}`;
       }
     }
 
@@ -103,7 +192,7 @@
 
       if (index >= opdrachten.length) {
         clearInterval(intervalId);
-        timerEl.textContent = "";
+        document.getElementById('timer').textContent = "";
         return;
       }
 
@@ -112,18 +201,17 @@
 
       const minuten = Math.floor(resterend / 60000);
       const seconden = Math.floor((resterend % 60000) / 1000);
-      timerEl.textContent = `Volgende opdracht over: ${String(minuten).padStart(2, '0')}:${String(seconden).padStart(2, '0')}`;
+      document.getElementById('timer').textContent = `Volgende opdracht over: ${String(minuten).padStart(2, '0')}:${String(seconden).padStart(2, '0')}`;
     }
 
-    // Luister naar Firebase
     db.ref("spel").on("value", (snapshot) => {
       const data = snapshot.val();
       const nieuweStarttijd = Number(data?.spel_starttijd) || null;
       const nieuweOffset = Number(data?.handmatige_offset) || 0;
 
       if (!nieuweStarttijd) {
-        opdrachtEl.textContent = "Het spel is nog niet gestart.";
-        timerEl.textContent = "--:--";
+        document.getElementById('opdracht').textContent = "Het spel is nog niet gestart.";
+        document.getElementById('timer').textContent = "--:--";
         clearInterval(intervalId);
         return;
       }
@@ -133,7 +221,7 @@
       laatsteIndex = -1;
 
       clearInterval(intervalId);
-      updateTimerLoop(); // direct uitvoeren
+      updateTimerLoop();
       intervalId = setInterval(updateTimerLoop, 1000);
     });
   </script>
