@@ -74,6 +74,7 @@
       "Zing het KSA-lied achterstevoren (zo goed als je kan).",
       "Doe een estafette met een ei (denk creatief).",
       "Maak een groepsfoto waarbij iedereen een ander dier nadoet.",
+      "Doe opdracht 7"
     ];
 
     const kwartierMs = 15 * 60 * 1000;
@@ -136,7 +137,7 @@
         }
         timerEl.textContent = "";
       } else {
-        const volgendeTijd = starttijd + (verstreken + 1) * kwartierMs;
+        const volgendeTijd = starttijd + (index + 1) * kwartierMs;
         startTimer(volgendeTijd);
       }
     }
