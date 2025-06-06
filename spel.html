@@ -3,158 +3,149 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>KSA Opdracht</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KSA Spel</title>
   <style>
     body {
-      font-family: sans-serif;
+      font-family: Arial, sans-serif;
+      background-color: #f0f4f8;
       display: flex;
       flex-direction: column;
-      justify-content: center;
       align-items: center;
+      justify-content: center;
       min-height: 100vh;
-      background-color: #f0f8ff;
       text-align: center;
-      padding: 20px;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
     }
 
     #opdracht {
-      font-size: 2rem;
-      margin-bottom: 20px;
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
     }
 
     #timer {
-      font-size: 1.5rem;
-      color: #333;
-      margin-bottom: 30px;
-    }
-
-    h2 {
-      margin-top: 40px;
-      margin-bottom: 10px;
-    }
-
-    table {
-      width: 90vw;
-      max-width: 600px;
-      border-collapse: collapse;
-      margin-bottom: 30px;
-    }
-
-    th,
-    td {
-      border: 1px solid #ccc;
-      padding: 8px;
-      text-align: left;
+      font-size: 1.2rem;
+      color: #555;
     }
   </style>
 </head>
 
 <body>
-  <div id="opdracht">Wachten op start van het spel...</div>
-  <div id="timer"></div>
+  <h1>Huidige opdracht</h1>
+  <div id="opdracht">Even laden...</div>
+  <div id="timer">--:--</div>
 
-  <h2>Geslaagde opdrachten</h2>
-  <table id="geslaagdTable">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Opdracht</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
-  <h2>Gefaalde opdrachten</h2>
-  <table id="gefaaldTable">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Opdracht</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
 
   <script>
+    // Firebase config (vervang door jouw echte configuratie)
+    const firebaseConfig = {
+      apiKey: "AIzaSyBBuzP_paWICOLgQlDlCqK3CXGPu5y_BwU",
+      authDomain: "ksa-spel.firebaseapp.com",
+      databaseURL: "https://ksa-spel-default-rtdb.europe-west1.firebasedatabase.app",  // <== deze lijn toevoegen
+      projectId: "ksa-spel",
+      storageBucket: "ksa-spel.firebasestorage.app",
+      messagingSenderId: "391903573489",
+      appId: "1:391903573489:web:17f8776dbdf2990d108050"
+    };
+
+
+    // Firebase initialiseren
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // HTML elementen
+    const opdrachtEl = document.getElementById('opdracht');
+    const timerEl = document.getElementById('timer');
+
+    // Opdrachtenlijst
     const opdrachten = [
       "Zoek een voorwerp dat blauw én zacht is.",
       "Maak een menselijke toren van minstens 3 personen.",
       "Verzamel 5 schoenen van verschillende mensen.",
       "Zing het KSA-lied achterstevoren (zo goed als je kan).",
       "Doe een estafette met een ei (denk creatief).",
-      "Maak een groepsfoto waarbij iedereen een ander dier nadoet."
+      "Maak een groepsfoto waarbij iedereen een ander dier nadoet.",
     ];
 
     const kwartierMs = 15 * 60 * 1000;
-
-    let handmatigeOffset = parseInt(localStorage.getItem("handmatige_offset")) || 0;
-
     let intervalId = null;
 
-    window.addEventListener("storage", (event) => {
-      if (["handmatige_offset", "geslaagd", "gefaald", "spel_starttijd"].includes(event.key)) {
-        handmatigeOffset = parseInt(localStorage.getItem("handmatige_offset")) || 0;
-        updateOpdracht();
-        vulTabellen();
+    function toonOpdracht(opdrachtIndex) {
+      if (opdrachtIndex >= opdrachten.length) {
+        opdrachtEl.textContent = "Spel afgelopen! Goed gespeeld!";
+        timerEl.textContent = "";
+      } else {
+        opdrachtEl.textContent = `Opdracht #${opdrachtIndex + 1}: ${opdrachten[opdrachtIndex]}`;
       }
-    });
+    }
 
-    function updateOpdracht() {
-      const starttijd = localStorage.getItem("spel_starttijd");
+    function startTimer(volgendeTijd) {
+      if (intervalId) clearInterval(intervalId);
+
+      intervalId = setInterval(() => {
+        const nu = Date.now();
+        const resterend = volgendeTijd - nu;
+
+        if (resterend <= 0) {
+          timerEl.textContent = "Nieuwe opdracht komt eraan...";
+          clearInterval(intervalId);
+          return;
+        }
+
+        const minuten = Math.floor(resterend / 60000);
+        const seconden = Math.floor((resterend % 60000) / 1000);
+        timerEl.textContent = `Volgende opdracht over: ${String(minuten).padStart(2, '0')}:${String(seconden).padStart(2, '0')}`;
+      }, 1000);
+    }
+
+    function berekenEnToon(snapshot) {
+      const data = snapshot.val();
+      const starttijd = data?.spel_starttijd || 0;
+      const offset = data?.handmatige_offset || 0;
+
       if (!starttijd) {
-        document.getElementById("opdracht").innerText = "Het spel is nog niet gestart.";
-        document.getElementById("timer").innerText = "";
+        opdrachtEl.textContent = "Het spel is nog niet gestart.";
+        timerEl.textContent = "";
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
         return;
       }
 
       const nu = Date.now();
-      const verschilMs = nu - parseInt(starttijd);
-      const kwartierenVerlopen = Math.floor(verschilMs / kwartierMs) + handmatigeOffset;
-      const tijdSindsLaatste = verschilMs % kwartierMs;
-      const tijdTotVolgende = kwartierMs - tijdSindsLaatste;
+      const verstreken = Math.floor((nu - starttijd) / kwartierMs);
+      const index = Math.min(verstreken + offset, opdrachten.length);
 
-      if (kwartierenVerlopen < opdrachten.length) {
-        document.getElementById("opdracht").innerText = opdrachten[kwartierenVerlopen];
-        const minuten = Math.floor(tijdTotVolgende / 60000);
-        const seconden = Math.floor((tijdTotVolgende % 60000) / 1000);
-        document.getElementById("timer").innerText = `Volgende opdracht over: ${minuten}m ${seconden}s`;
-      } else {
-        document.getElementById("opdracht").innerText = "Spel afgelopen! Goed gespeeld!";
-        document.getElementById("timer").innerText = "";
-        if (intervalId !== null) {
+      toonOpdracht(index);
+
+      if (index >= opdrachten.length) {
+        // Einde spel: timer stoppen
+        if (intervalId) {
           clearInterval(intervalId);
           intervalId = null;
         }
+        timerEl.textContent = "";
+      } else {
+        const volgendeTijd = starttijd + (verstreken + 1) * kwartierMs;
+        startTimer(volgendeTijd);
       }
     }
 
-    function vulTabellen() {
-      const geslaagd = JSON.parse(localStorage.getItem("geslaagd")) || [];
-      const gefaald = JSON.parse(localStorage.getItem("gefaald")) || [];
-
-      const geslaagdBody = document.querySelector("#geslaagdTable tbody");
-      const gefaaldBody = document.querySelector("#gefaaldTable tbody");
-
-      geslaagdBody.innerHTML = "";
-      gefaaldBody.innerHTML = "";
-
-      geslaagd.forEach((index, i) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${i + 1}</td><td>${opdrachten[index]}</td>`;
-        geslaagdBody.appendChild(tr);
-      });
-
-      gefaald.forEach((index, i) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${i + 1}</td><td>${opdrachten[index]}</td>`;
-        gefaaldBody.appendChild(tr);
-      });
-    }
-
-    intervalId = setInterval(updateOpdracht, 1000);
-    updateOpdracht();
-    vulTabellen();
+    // Luister live naar wijzigingen in de database
+    const spelRef = db.ref("spel");
+    spelRef.on("value", (snapshot) => {
+      berekenEnToon(snapshot);
+    });
   </script>
 </body>
 

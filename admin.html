@@ -78,7 +78,28 @@
     <tbody></tbody>
   </table>
 
+  <!-- Firebase SDK's -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+
   <script>
+    // Firebase configuratie
+    const firebaseConfig = {
+      apiKey: "AIzaSyBBuzP_paWICOLgQlDlCqK3CXGPu5y_BwU",
+      authDomain: "ksa-spel.firebaseapp.com",
+      databaseURL: "https://ksa-spel-default-rtdb.europe-west1.firebasedatabase.app",  // <== deze lijn toevoegen
+      projectId: "ksa-spel",
+      storageBucket: "ksa-spel.firebasestorage.app",
+      messagingSenderId: "391903573489",
+      appId: "1:391903573489:web:17f8776dbdf2990d108050"
+    };
+
+
+    // Firebase initialiseren
+    const app = firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
     const opdrachten = [
       "Zoek een voorwerp dat blauw én zacht is.",
       "Maak een menselijke toren van minstens 3 personen.",
@@ -90,37 +111,31 @@
 
     const kwartierMs = 15 * 60 * 1000;
 
-    function getStarttijd() {
-      return parseInt(localStorage.getItem("spel_starttijd")) || 0;
+    function getStarttijd(snapshot) {
+      return snapshot.val()?.spel_starttijd || 0;
     }
 
-    function getOffset() {
-      return parseInt(localStorage.getItem("handmatige_offset")) || 0;
+    function getOffset(snapshot) {
+      return snapshot.val()?.handmatige_offset || 0;
     }
 
-    function huidigeOpdrachtIndex() {
-      const starttijd = getStarttijd();
+    function huidigeOpdrachtIndex(starttijd, offset) {
       if (!starttijd) return -1;
-
       const now = Date.now();
-      const offset = getOffset();
       const verschilMs = now - starttijd;
-
       const kwartierenVerlopenZonderOffset = Math.floor(verschilMs / kwartierMs);
-
       let index = kwartierenVerlopenZonderOffset + offset;
-
       if (index >= opdrachten.length) {
         return -1; // Spel afgelopen
       }
-
       return index;
     }
 
-    function updateStatus() {
-      const starttijd = getStarttijd();
+    function updateStatus(data) {
+      const starttijd = getStarttijd(data);
+      const offset = getOffset(data);
       const statusEl = document.getElementById("status");
-      const huidigeIndex = huidigeOpdrachtIndex();
+      const huidigeIndex = huidigeOpdrachtIndex(starttijd, offset);
 
       if (!starttijd) {
         statusEl.innerText = "Het spel is nog niet gestart.";
@@ -130,13 +145,11 @@
         statusEl.innerText = `Spel gestart op: ${new Date(starttijd).toLocaleTimeString()}`;
       }
 
-      updateHuidigeOpdrachtStatus();
+      updateHuidigeOpdrachtStatus(huidigeIndex);
     }
 
-    function updateHuidigeOpdrachtStatus() {
-      const huidigeIndex = huidigeOpdrachtIndex();
+    function updateHuidigeOpdrachtStatus(huidigeIndex) {
       const el = document.getElementById("huidigeOpdrachtStatus");
-
       if (huidigeIndex === -1) {
         el.innerText = "";
       } else {
@@ -144,9 +157,9 @@
       }
     }
 
-    function vulTabellen() {
-      const geslaagd = JSON.parse(localStorage.getItem("geslaagd")) || [];
-      const gefaald = JSON.parse(localStorage.getItem("gefaald")) || [];
+    function vulTabellen(data) {
+      const geslaagd = data.val()?.geslaagd || [];
+      const gefaald = data.val()?.gefaald || [];
 
       const geslaagdBody = document.querySelector("#geslaagdTable tbody");
       const gefaaldBody = document.querySelector("#gefaaldTable tbody");
@@ -167,78 +180,76 @@
       });
     }
 
+    // Luister naar wijzigingen in de database
+    const spelRef = database.ref("spel");
+    spelRef.on("value", (snapshot) => {
+      updateStatus(snapshot);
+      vulTabellen(snapshot);
+    });
+
     document.getElementById("startBtn").addEventListener("click", () => {
       const now = Date.now();
-      localStorage.setItem("spel_starttijd", now);
-      localStorage.setItem("handmatige_offset", 0);
-      localStorage.setItem("geslaagd", JSON.stringify([]));
-      localStorage.setItem("gefaald", JSON.stringify([]));
-      updateStatus();
-      vulTabellen();
+      spelRef.set({
+        spel_starttijd: now,
+        handmatige_offset: 0,
+        geslaagd: [],
+        gefaald: []
+      });
     });
 
     document.getElementById("volgendeBtn").addEventListener("click", () => {
-      let offset = getOffset();
-      offset++;
-      if (offset > opdrachten.length) offset = opdrachten.length; // max één hoger dan opdrachten.length to allow -1 check
-      localStorage.setItem("handmatige_offset", offset);
-      updateStatus();
+      spelRef.once("value").then((snapshot) => {
+        let offset = getOffset(snapshot) + 1;
+        if (offset > opdrachten.length) offset = opdrachten.length;
+        spelRef.update({ handmatige_offset: offset });
+      });
     });
 
     document.getElementById("geslaagdBtn").addEventListener("click", () => {
-      const index = huidigeOpdrachtIndex();
-      if (index === -1) return;
-      const geslaagd = JSON.parse(localStorage.getItem("geslaagd")) || [];
-      if (!geslaagd.includes(index)) {
-        geslaagd.push(index);
-        localStorage.setItem("geslaagd", JSON.stringify(geslaagd));
-      }
-      let offset = getOffset();
-      offset++;
-      if (offset > opdrachten.length) offset = opdrachten.length;
-      localStorage.setItem("handmatige_offset", offset);
-      vulTabellen();
-      updateStatus();
+      spelRef.once("value").then((snapshot) => {
+        const starttijd = getStarttijd(snapshot);
+        const offset = getOffset(snapshot);
+        const index = huidigeOpdrachtIndex(starttijd, offset);
+        if (index === -1) return;
+        const geslaagd = snapshot.val()?.geslaagd || [];
+        if (!geslaagd.includes(index)) {
+          geslaagd.push(index);
+        }
+        let newOffset = offset + 1;
+        if (newOffset > opdrachten.length) newOffset = opdrachten.length;
+        spelRef.update({
+          geslaagd: geslaagd,
+          handmatige_offset: newOffset
+        });
+      });
     });
 
     document.getElementById("gefaaldBtn").addEventListener("click", () => {
-      const index = huidigeOpdrachtIndex();
-      if (index === -1) return;
-      const gefaald = JSON.parse(localStorage.getItem("gefaald")) || [];
-      if (!gefaald.includes(index)) {
-        gefaald.push(index);
-        localStorage.setItem("gefaald", JSON.stringify(gefaald));
-      }
-      let offset = getOffset();
-      offset++;
-      if (offset > opdrachten.length) offset = opdrachten.length;
-      localStorage.setItem("handmatige_offset", offset);
-      vulTabellen();
-      updateStatus();
+      spelRef.once("value").then((snapshot) => {
+        const starttijd = getStarttijd(snapshot);
+        const offset = getOffset(snapshot);
+        const index = huidigeOpdrachtIndex(starttijd, offset);
+        if (index === -1) return;
+        const gefaald = snapshot.val()?.gefaald || [];
+        if (!gefaald.includes(index)) {
+          gefaald.push(index);
+        }
+        let newOffset = offset + 1;
+        if (newOffset > opdrachten.length) newOffset = opdrachten.length;
+        spelRef.update({
+          gefaald: gefaald,
+          handmatige_offset: newOffset
+        });
+      });
     });
 
     document.getElementById("resetBtn").addEventListener("click", () => {
-      localStorage.removeItem("spel_starttijd");
-      localStorage.removeItem("handmatige_offset");
-      localStorage.removeItem("geslaagd");
-      localStorage.removeItem("gefaald");
-      updateStatus();
-      vulTabellen();
-    });
-
-    updateStatus();
-    vulTabellen();
-
-    window.addEventListener("storage", (e) => {
-      if (
-        e.key === "spel_starttijd" ||
-        e.key === "handmatige_offset" ||
-        e.key === "geslaagd" ||
-        e.key === "gefaald"
-      ) {
-        updateStatus();
-        vulTabellen();
-      }
+      spelRef.set({
+        spel_starttijd: 0,
+        handmatige_offset: 0,
+        geslaagd: [],
+        gefaald: []
+      });
     });
   </script>
 </body>
