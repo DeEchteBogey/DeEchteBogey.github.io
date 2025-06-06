@@ -202,7 +202,10 @@
       spelRef.once("value").then((snapshot) => {
         let offset = getOffset(snapshot) + 1;
         if (offset > opdrachten.length) offset = opdrachten.length;
-        spelRef.update({ handmatige_offset: offset });
+        spelRef.update({
+          handmatige_offset: offset,
+          spel_starttijd: Date.now()  // timer reset
+        });
       });
     });
 
@@ -220,7 +223,8 @@
         if (newOffset > opdrachten.length) newOffset = opdrachten.length;
         spelRef.update({
           geslaagd: geslaagd,
-          handmatige_offset: newOffset
+          handmatige_offset: newOffset,
+          spel_starttijd: Date.now()  // timer reset
         });
       });
     });
@@ -239,7 +243,8 @@
         if (newOffset > opdrachten.length) newOffset = opdrachten.length;
         spelRef.update({
           gefaald: gefaald,
-          handmatige_offset: newOffset
+          handmatige_offset: newOffset,
+          spel_starttijd: Date.now()  // timer reset
         });
       });
     });

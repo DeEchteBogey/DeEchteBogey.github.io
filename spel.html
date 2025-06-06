@@ -44,29 +44,25 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
-
   <script>
-    // Firebase config (vervang door jouw echte configuratie)
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyBBuzP_paWICOLgQlDlCqK3CXGPu5y_BwU",
       authDomain: "ksa-spel.firebaseapp.com",
-      databaseURL: "https://ksa-spel-default-rtdb.europe-west1.firebasedatabase.app",  // <== deze lijn toevoegen
+      databaseURL: "https://ksa-spel-default-rtdb.europe-west1.firebasedatabase.app",
       projectId: "ksa-spel",
       storageBucket: "ksa-spel.firebasestorage.app",
       messagingSenderId: "391903573489",
       appId: "1:391903573489:web:17f8776dbdf2990d108050"
     };
 
-
     // Firebase initialiseren
-    const app = firebase.initializeApp(firebaseConfig);
+    firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // HTML elementen
     const opdrachtEl = document.getElementById('opdracht');
     const timerEl = document.getElementById('timer');
 
-    // Opdrachtenlijst
     const opdrachten = [
       "Zoek een voorwerp dat blauw én zacht is.",
       "Maak een menselijke toren van minstens 3 personen.",
@@ -78,74 +74,67 @@
     ];
 
     const kwartierMs = 15 * 60 * 1000;
+
+    let starttijd = null;
+    let offset = 0;
+    let laatsteIndex = -1;
     let intervalId = null;
 
-    function toonOpdracht(opdrachtIndex) {
-      if (opdrachtIndex >= opdrachten.length) {
+    function toonOpdracht(index) {
+      if (index >= opdrachten.length) {
         opdrachtEl.textContent = "Spel afgelopen! Goed gespeeld!";
         timerEl.textContent = "";
       } else {
-        opdrachtEl.textContent = `Opdracht #${opdrachtIndex + 1}: ${opdrachten[opdrachtIndex]}`;
+        opdrachtEl.textContent = `Opdracht #${index + 1}: ${opdrachten[index]}`;
       }
     }
 
-    function startTimer(volgendeTijd) {
-      if (intervalId) clearInterval(intervalId);
-
-      intervalId = setInterval(() => {
-        const nu = Date.now();
-        const resterend = volgendeTijd - nu;
-
-        if (resterend <= 0) {
-          timerEl.textContent = "Nieuwe opdracht komt eraan...";
-          clearInterval(intervalId);
-          return;
-        }
-
-        const minuten = Math.floor(resterend / 60000);
-        const seconden = Math.floor((resterend % 60000) / 1000);
-        timerEl.textContent = `Volgende opdracht over: ${String(minuten).padStart(2, '0')}:${String(seconden).padStart(2, '0')}`;
-      }, 1000);
-    }
-
-    function berekenEnToon(snapshot) {
-      const data = snapshot.val();
-      const starttijd = data?.spel_starttijd || 0;
-      const offset = data?.handmatige_offset || 0;
-
-      if (!starttijd) {
-        opdrachtEl.textContent = "Het spel is nog niet gestart.";
-        timerEl.textContent = "";
-        if (intervalId) {
-          clearInterval(intervalId);
-          intervalId = null;
-        }
-        return;
-      }
+    function updateTimerLoop() {
+      if (!starttijd) return;
 
       const nu = Date.now();
       const verstreken = Math.floor((nu - starttijd) / kwartierMs);
-      const index = Math.min(verstreken + offset, opdrachten.length);
+      const index = verstreken + offset;
 
-      toonOpdracht(index);
+      if (index !== laatsteIndex) {
+        toonOpdracht(index);
+        laatsteIndex = index;
+      }
 
       if (index >= opdrachten.length) {
-        // Einde spel: timer stoppen
-        if (intervalId) {
-          clearInterval(intervalId);
-          intervalId = null;
-        }
+        clearInterval(intervalId);
         timerEl.textContent = "";
-      } else {
-        const volgendeTijd = starttijd + (index + 1) * kwartierMs;
-        startTimer(volgendeTijd);
+        return;
       }
+
+      const volgendeTijd = starttijd + (verstreken + 1) * kwartierMs;
+      const resterend = volgendeTijd - nu;
+
+      const minuten = Math.floor(resterend / 60000);
+      const seconden = Math.floor((resterend % 60000) / 1000);
+      timerEl.textContent = `Volgende opdracht over: ${String(minuten).padStart(2, '0')}:${String(seconden).padStart(2, '0')}`;
     }
 
-    // Luister live naar wijzigingen in de database
-    const spelRef = db.ref("spel");
-    spelRef.on("value", (snapshot) => {
-      berekenEnToon(snapshot);
+    // Luister naar Firebase
+    db.ref("spel").on("value", (snapshot) => {
+      const data = snapshot.val();
+      const nieuweStarttijd = Number(data?.spel_starttijd) || null;
+      const nieuweOffset = Number(data?.handmatige_offset) || 0;
+
+      if (!nieuweStarttijd) {
+        opdrachtEl.textContent = "Het spel is nog niet gestart.";
+        timerEl.textContent = "--:--";
+        clearInterval(intervalId);
+        return;
+      }
+
+      starttijd = nieuweStarttijd;
+      offset = nieuweOffset;
+      laatsteIndex = -1;
+
+      clearInterval(intervalId);
+      updateTimerLoop(); // direct uitvoeren
+      intervalId = setInterval(updateTimerLoop, 1000);
     });
   </script>
 </body>
